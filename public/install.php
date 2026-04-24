@@ -87,6 +87,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['install_db_name'] = $dbName;
                     $_SESSION['install_db_user'] = $dbUser;
                     $_SESSION['install_db_pass'] = $dbPass;
+                    $_SESSION['install_admin_user'] = $adminUser;
+                    $_SESSION['install_admin_pass'] = $adminPass;
+                    $_SESSION['install_admin_email'] = $adminEmail;
                 } else {
                     $errors[] = 'فشل كتابة ملف config/env.php - تحقق من صلاحيات الملفات';
                     $step = 1;
@@ -149,35 +152,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($step === 4) {
         // Step 4: Create admin user + seed data
-        define('APP_ROOT', dirname(__DIR__));
-        require_once APP_ROOT . '/config/config.php';
-        require_once APP_ROOT . '/app/core/Database.php';
-        require_once APP_ROOT . '/app/core/Auth.php';
+        $dbHost = $_SESSION['install_db_host'] ?? 'localhost';
+        $dbName = $_SESSION['install_db_name'] ?? '';
+        $dbUser = $_SESSION['install_db_user'] ?? '';
+        $dbPass = $_SESSION['install_db_pass'] ?? '';
 
-        $db = Database::getInstance();
-        if (!$db->isConnected()) {
-            $errors[] = 'فشل الاتصال بقاعدة البيانات';
+        try {
+            $pdo = new PDO(
+                "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4",
+                $dbUser,
+                $dbPass,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+        } catch (PDOException $e) {
+            $errors[] = 'فشل الاتصال بقاعدة البيانات: ' . $e->getMessage();
             $step = 3;
-        } else {
-            // Create admin
-            $userId = Auth::createAdmin();
-            $success[] = 'تم إنشاء حساب المدير (ID: ' . $userId . ')';
+        }
+
+        if (empty($errors)) {
+            // Create admin user
+            $adminUser = $_SESSION['install_admin_user'] ?? 'admin';
+            $adminPass = $_SESSION['install_admin_pass'] ?? 'Admin@123456';
+            $adminEmail = $_SESSION['install_admin_email'] ?? 'admin@example.com';
+
+            $existing = $pdo->query("SELECT id FROM users WHERE username = " . $pdo->quote($adminUser))->fetch();
+            if (!$existing) {
+                $hashed = password_hash($adminPass, PASSWORD_BCRYPT);
+                $pdo->exec("INSERT INTO users (username, password, email, role, is_active, created_at, updated_at) VALUES (" .
+                    $pdo->quote($adminUser) . ", " .
+                    $pdo->quote($hashed) . ", " .
+                    $pdo->quote($adminEmail) . ", " .
+                    "'admin', 1, NOW(), NOW())");
+                $userId = $pdo->lastInsertId();
+                $success[] = 'تم إنشاء حساب المدير (ID: ' . $userId . ')';
+            } else {
+                $success[] = 'حساب المدير موجود مسبقاً';
+            }
 
             // Seed sample data if requested
             if (!empty($_POST['seed_data'])) {
-                require_once APP_ROOT . '/app/core/Helpers.php';
-                require_once APP_ROOT . '/app/models/ProjectModel.php';
-                require_once APP_ROOT . '/app/models/PostModel.php';
-                require_once APP_ROOT . '/app/models/AlertModel.php';
-                require_once APP_ROOT . '/app/models/SummaryModel.php';
+                // PDO insert helper
+                $pdoInsert = function($table, $data) use ($pdo) {
+                    $cols = implode(', ', array_keys($data));
+                    $vals = implode(', ', array_fill(0, count($data), '?'));
+                    $stmt = $pdo->prepare("INSERT INTO {$table} ({$cols}) VALUES ({$vals})");
+                    $stmt->execute(array_values($data));
+                    return $pdo->lastInsertId();
+                };
 
-                $seedFile = APP_ROOT . '/database/seed.php';
-                // The seed.php will be run via include which executes it
-                // But we need to prevent its echo output, so let's do it manually
-
-                $project = $db->queryOne("SELECT id FROM projects WHERE name = 'شركة النخبة للخدمات'");
+                $project = $pdo->query("SELECT id FROM projects WHERE name = 'شركة النخبة للخدمات'")->fetch();
                 if (!$project) {
-                    $projectId = $db->insert('projects', [
+                    $projectId = $pdoInsert('projects', [
                         'name' => 'شركة النخبة للخدمات',
                         'description' => 'شركة رائدة في مجال الخدمات والاستشارات',
                         'is_active' => 1,
@@ -187,23 +212,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $keywords = ['النخبة', 'خدمات النخبة', 'شركة النخبة'];
                     foreach ($keywords as $kw) {
-                        $db->insert('project_keywords', ['project_id' => $projectId, 'keyword' => $kw, 'type' => 'search']);
+                        $pdoInsert('project_keywords', ['project_id' => $projectId, 'keyword' => $kw, 'type' => 'search']);
                     }
                     $crisisKw = ['فضيحة النخبة', 'مقاطعة النخبة', 'احتيال'];
                     foreach ($crisisKw as $kw) {
-                        $db->insert('project_keywords', ['project_id' => $projectId, 'keyword' => $kw, 'type' => 'crisis']);
+                        $pdoInsert('project_keywords', ['project_id' => $projectId, 'keyword' => $kw, 'type' => 'crisis']);
                     }
                     $hashtags = ['#النخبة', '#خدمات_النخبة', '#شركة_النخبة'];
                     foreach ($hashtags as $ht) {
-                        $db->insert('project_hashtags', ['project_id' => $projectId, 'hashtag' => $ht]);
+                        $pdoInsert('project_hashtags', ['project_id' => $projectId, 'hashtag' => $ht]);
                     }
                     $accounts = ['@alnokhba', '@nokhba_services'];
                     foreach ($accounts as $acc) {
-                        $db->insert('project_accounts', ['project_id' => $projectId, 'account_username' => $acc]);
+                        $pdoInsert('project_accounts', ['project_id' => $projectId, 'account_username' => $acc]);
                     }
-                    $db->insert('competitors', ['project_id' => $projectId, 'name' => 'المنافس الذهبي', 'username' => '@golden_competitor']);
+                    $pdoInsert('competitors', ['project_id' => $projectId, 'name' => 'المنافس الذهبي', 'username' => '@golden_competitor']);
 
-                    $runId = $db->insert('collection_runs', [
+                    $runId = $pdoInsert('collection_runs', [
                         'project_id' => $projectId,
                         'actor_id' => 'scraply~x-twitter-posts-search',
                         'status' => 'completed',
@@ -267,7 +292,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $author = $authors[$i % count($authors)];
                         $postedAt = date('Y-m-d H:i:s', strtotime('-' . rand(1, 168) . ' hours'));
 
-                        $postId = $db->insert('posts', [
+                        $postId = $pdoInsert('posts', [
                             'project_id' => $projectId,
                             'collection_run_id' => $runId,
                             'platform' => 'x_twitter',
@@ -289,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'updated_at' => date('Y-m-d H:i:s')
                         ]);
 
-                        $db->insert('post_ai_analysis', [
+                        $pdoInsert('post_ai_analysis', [
                             'post_id' => $postId,
                             'sentiment' => $sp['sentiment'],
                             'sentiment_score' => $sp['score'],
@@ -316,7 +341,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ['type' => 'rumor_detected', 'severity' => 'high', 'title' => 'إشاعة مكتشفة', 'desc' => 'تم رصد إشاعة عن إفلاس الشركة'],
                     ];
                     foreach ($alerts as $alert) {
-                        $db->insert('alerts', [
+                        $pdoInsert('alerts', [
                             'project_id' => $projectId,
                             'alert_type' => $alert['type'],
                             'severity' => $alert['severity'],
