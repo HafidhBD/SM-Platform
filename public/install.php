@@ -6,6 +6,11 @@
  * DELETE THIS FILE after installation!
  */
 
+// Start session FIRST - needed for storing install state between steps
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Pre-fill known values
 $prefill = [
     'db_host' => 'localhost',
@@ -337,10 +342,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Start session for install state
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
