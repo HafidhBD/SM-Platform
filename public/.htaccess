@@ -1,0 +1,23 @@
+# This .htaccess goes in /public directory
+# Used when document root is set to /public (VPS or Hostinger subdomain)
+
+RewriteEngine On
+
+# Route all requests through index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+Options -Indexes
+
+<IfModule mod_php.c>
+    php_value display_errors 0
+    php_value log_errors 1
+</IfModule>

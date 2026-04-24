@@ -1,0 +1,41 @@
+# Market Intelligence Platform - Apache Rewrite Rules
+# Place this in the project ROOT directory on Hostinger
+
+# Protect sensitive directories from direct access
+RedirectMatch 403 ^/config/.*
+RedirectMatch 403 ^/app/.*
+RedirectMatch 403 ^/storage/.*
+RedirectMatch 403 ^/database/.*
+RedirectMatch 403 ^/cron/.*
+
+# Route all requests through public/index.php
+RewriteEngine On
+
+# Serve static assets directly from public/
+RewriteCond %{REQUEST_URI} ^/assets/
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# Route everything else to public/index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /public/index.php [QSA,L]
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Prevent directory listing
+Options -Indexes
+
+# PHP settings (if allowed on shared hosting)
+<IfModule mod_php.c>
+    php_value display_errors 0
+    php_value log_errors 1
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+</IfModule>

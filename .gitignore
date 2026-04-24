@@ -1,0 +1,18 @@
+# Apify environment override (do not commit)
+/config/env.php
+
+# Storage
+/storage/logs/*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Temp
+*.tmp
+*.bak
