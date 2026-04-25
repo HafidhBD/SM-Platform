@@ -11,6 +11,12 @@ if (!defined('APP_ROOT')) {
     die('Direct access not permitted');
 }
 
+// Load environment overrides FIRST (before defaults, so env values win)
+$envFile = dirname(__FILE__) . '/env.php';
+if (file_exists($envFile)) {
+    require_once $envFile;
+}
+
 // Application
 define('APP_NAME', 'Market Intelligence Platform');
 define('APP_VERSION', '1.0.0');
@@ -18,27 +24,27 @@ define('APP_LANG', 'ar');
 define('APP_DIR', 'ltr'); // Direction for admin UI - can be toggled
 
 // Paths
-define('APP_ROOT', dirname(__DIR__));
-define('PUBLIC_ROOT', APP_ROOT . '/public');
-define('VIEWS_PATH', APP_ROOT . '/app/views');
-define('STORAGE_PATH', APP_ROOT . '/storage');
-define('LOGS_PATH', STORAGE_PATH . '/logs');
-define('PROMPTS_PATH', APP_ROOT . '/app/prompts');
+if (!defined('APP_ROOT')) define('APP_ROOT', dirname(__DIR__));
+if (!defined('PUBLIC_ROOT')) define('PUBLIC_ROOT', APP_ROOT . '/public');
+if (!defined('VIEWS_PATH')) define('VIEWS_PATH', APP_ROOT . '/app/views');
+if (!defined('STORAGE_PATH')) define('STORAGE_PATH', APP_ROOT . '/storage');
+if (!defined('LOGS_PATH')) define('LOGS_PATH', STORAGE_PATH . '/logs');
+if (!defined('PROMPTS_PATH')) define('PROMPTS_PATH', APP_ROOT . '/app/prompts');
 
 // Database defaults (override in env.php)
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'mi_platform');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_CHARSET', 'utf8mb4');
+if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
+if (!defined('DB_NAME')) define('DB_NAME', 'mi_platform');
+if (!defined('DB_USER')) define('DB_USER', 'root');
+if (!defined('DB_PASS')) define('DB_PASS', '');
+if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
 
 // Session
 define('SESSION_LIFETIME', 7200); // 2 hours
 define('SESSION_NAME', 'mi_platform_session');
 
 // Apify defaults (override in env.php)
-define('APIFY_API_TOKEN', '');
-define('APIFY_ACTOR_ID', 'scraply~x-twitter-posts-search');
+if (!defined('APIFY_API_TOKEN')) define('APIFY_API_TOKEN', '');
+if (!defined('APIFY_ACTOR_ID')) define('APIFY_ACTOR_ID', 'scraply~x-twitter-posts-search');
 define('APIFY_BASE_URL', 'https://api.apify.com/v2');
 define('APIFY_MAX_RETRIES', 3);
 define('APIFY_RETRY_DELAY', 5); // seconds
@@ -48,8 +54,8 @@ define('APIFY_DEFAULT_TIME_WINDOW', 7); // days
 define('APIFY_DEFAULT_SEARCH_TYPE', 'latest');
 
 // OpenAI defaults (override in env.php)
-define('OPENAI_API_KEY', '');
-define('OPENAI_MODEL', 'gpt-4o-mini');
+if (!defined('OPENAI_API_KEY')) define('OPENAI_API_KEY', '');
+if (!defined('OPENAI_MODEL')) define('OPENAI_MODEL', 'gpt-4o-mini');
 define('OPENAI_BASE_URL', 'https://api.openai.com/v1');
 define('OPENAI_MAX_TOKENS', 2000);
 define('OPENAI_TEMPERATURE', 0.3);
@@ -68,12 +74,6 @@ define('CSRF_TOKEN_LIFETIME', 3600); // 1 hour
 
 // Timezone
 date_default_timezone_set('Asia/Riyadh');
-
-// Load environment overrides
-$envFile = APP_ROOT . '/config/env.php';
-if (file_exists($envFile)) {
-    require_once $envFile;
-}
 
 // Ensure logs directory exists
 if (!is_dir(LOGS_PATH)) {
